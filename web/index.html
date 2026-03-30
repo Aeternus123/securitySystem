@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>智能管家系统 - 树莓派控制中心</title>
+    <style>
+        /* 全局样式 - 响应式设计 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
+            background: #f0f2f5;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            /* 等比例缩小到原来的 4/5 */
+            transform: scale(0.8);
+            transform-origin: center top;
+            /* 调整高度以适应缩小后的内容 */
+            height: 125vh;
+            /* 确保内容居中 */
+            display: flex;
+            justify-content: center;
+        }
+
+        /* 红色直线划分 - 使用百分比定位 */
+        .divider-vertical {
+            position: absolute;
+            width: 2px;
+            height: 100%;
+            background-color: #ff0000;
+            left: 66.5%;
+            /* 1700/2560 ≈ 66.5% */
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 0 0 1px #ff0000;
+        }
+
+        .divider-horizontal-1 {
+            position: absolute;
+            width: 66.5%;
+            height: 2px;
+            background-color: #ff0000;
+            left: 0;
+            top: 55.5%;
+            /* 800/1440 ≈ 55.5% */
+            z-index: 10;
+            box-shadow: 0 0 0 1px #ff0000;
+        }
+
+        .divider-horizontal-2 {
+            position: absolute;
+            width: 66.5%;
+            height: 2px;
+            background-color: #ff0000;
+            left: 0;
+            top: 76.4%;
+            /* 1100/1440 ≈ 76.4% */
+            z-index: 10;
+            box-shadow: 0 0 0 1px #ff0000;
+        }
+
+        /* 左侧区域 - 摄像头 - 使用百分比 */
+        .camera-section {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 66.5%;
+            height: 55.5%;
+            background: #1a1a1a;
+            border: none;
+            overflow: hidden;
+        }
+
+        .camera-window {
+            width: 100%;
+            height: calc(100% - 50px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            position: relative;
+        }
+
+        .camera-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            height: 50px;
+        }
+
+        .camera-header h2 {
+            color: white;
+            font-size: clamp(16px, 2vw, 24px);
+            margin: 0;
+        }
+
+        .camera-header span {
+            font-size: clamp(12px, 1.5vw, 18px);
+        }
+
+        /* 左侧中部 - 设备状态区域 */
+        .devices-section {
+            position: absolute;
+            left: 0;
+            top: 55.7%;
+            width: 66.5%;
+            height: 20.8%;
+            /* 296/1440 ≈ 20.8% */
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding: 0 2%;
+        }
+
+        .device-item {
+            text-align: center;
+            width: 20%;
+        }
+
+        .device-icon {
+            font-size: clamp(24px, 4vw, 48px);
+            margin-bottom: 5px;
+        }
+
+        .device-name {
+            font-size: clamp(12px, 1.5vw, 20px);
+            color: #333;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .device-status {
+            font-size: clamp(14px, 2vw, 24px);
+            font-weight: bold;
+        }
+
+        .device-status.ac-on {
+            color: #2196F3;
+        }
+
+        .device-status.ac-off {
+            color: #999;
+        }
+
+        .device-status.smoke-normal {
+            color: #4CAF50;
+        }
+
+        .device-status.smoke-warning {
+            color: #f44336;
+        }
+
+        .device-status.light-on {
+            color: #FFC107;
+        }
+
+        .device-status.light-off {
+            color: #999;
+        }
+
+        /* 左侧底部 - 温湿度传感器 */
+        .sensor-section {
+            position: absolute;
+            left: 0;
+            top: 76.7%;
+            width: 66.5%;
+            height: 23.3%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5%;
+        }
+
+        .sensor-card {
+            width: 40%;
+            height: 70%;
+            background: #f8f9fa;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .sensor-label {
+            font-size: clamp(14px, 1.8vw, 24px);
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .sensor-value {
+            font-size: clamp(28px, 4vw, 48px);
+            font-weight: bold;
+            color: #2196F3;
+        }
+
+        .sensor-unit {
+            font-size: clamp(12px, 1.5vw, 20px);
+            color: #999;
+            margin-left: 5px;
+        }
+
+        /* 右侧区域 - 门锁控制 */
+        .lock-section {
+            position: absolute;
+            left: 66.7%;
+            top: 0;
+            width: 33.3%;
+            height: 100%;
+            background: white;
+            padding: 3% 2%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .lock-title {
+            font-size: clamp(20px, 3vw, 36px);
+            font-weight: bold;
+            color: #333;
+            text-align: center;
+            margin-bottom: 5%;
+        }
+
+        .password-display {
+            display: flex;
+            justify-content: center;
+            gap: 2%;
+            margin: 5% 0;
+        }
+
+        .password-dot {
+            width: clamp(10px, 1.5vw, 20px);
+            height: clamp(10px, 1.5vw, 20px);
+            border-radius: 50%;
+            background: #ddd;
+            transition: all 0.3s ease;
+        }
+
+        .password-dot.active {
+            background: #4CAF50;
+            transform: scale(1.2);
+        }
+
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5%;
+            margin: 5% 0;
+        }
+
+        .key {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f5f5f5;
+            border: none;
+            border-radius: 10px;
+            font-size: clamp(16px, 2.5vw, 32px);
+            font-weight: 600;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .key:hover {
+            background: #e0e0e0;
+            transform: scale(1.05);
+        }
+
+        .key.camera {
+            background: #2196F3;
+            color: white;
+            font-size: clamp(12px, 1.8vw, 24px);
+        }
+
+        .key.backspace {
+            background: #ff9800;
+            color: white;
+            font-size: clamp(12px, 1.8vw, 24px);
+        }
+
+        .voice-hint {
+            text-align: center;
+            margin: 3% 0;
+            padding: 3%;
+            background: #f3e5f5;
+            border-radius: 10px;
+            font-size: clamp(12px, 1.5vw, 20px);
+            color: #7b1fa2;
+        }
+
+        .voice-hint i {
+            font-style: normal;
+            background: #7b1fa2;
+            color: white;
+            padding: 2% 5%;
+            border-radius: 15px;
+            margin: 0 2%;
+        }
+
+        .message {
+            padding: 2%;
+            border-radius: 5px;
+            text-align: center;
+            font-size: clamp(12px, 1.5vw, 18px);
+            margin: 2% 0;
+            display: none;
+        }
+
+        .message.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+        }
+
+        .message.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+        }
+
+        .unlock-panel {
+            margin-top: 3%;
+        }
+
+        .unlock-hint {
+            text-align: center;
+            margin: 2% 0;
+            padding: 2%;
+            background: #e8f5e9;
+            border-radius: 5px;
+            font-size: clamp(11px, 1.3vw, 16px);
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+        }
+
+        .status-online {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .status-offline {
+            color: #f44336;
+            font-weight: bold;
+        }
+
+        .unlock-hint i {
+            font-style: normal;
+            background: #4CAF50;
+            color: white;
+            padding: 2% 5%;
+            border-radius: 15px;
+            margin: 0 2%;
+        }
+
+        #lastUpdate {
+            position: absolute;
+            bottom: 5px;
+            right: 10px;
+            font-size: clamp(10px, 1.2vw, 14px);
+            color: #999;
+        }
+
+        /* 全屏查看按钮 */
+        .fullscreen-btn {
+            color: white;
+            text-decoration: none;
+            background: #4CAF50;
+            padding: 5px 15px;
+            border-radius: 5px;
+            font-size: clamp(12px, 1.5vw, 16px);
+            display: inline-block;
+        }
+
+        .fullscreen-btn:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 红色直线划分 -->
+    <div class="divider-vertical"></div>
+    <div class="divider-horizontal-1"></div>
+    <div class="divider-horizontal-2"></div>
+
+    <!-- 左侧摄像头区域 -->
+    <div class="camera-section">
+        <div class="camera-header">
+            <h2>📹 摄像头</h2>
+            <span class="device-status status-online" id="cameraStatus">在线</span>
+        </div>
+        <div class="camera-window">
+            <!-- 从独立服务器获取视频流 -->
+            <img src="http://172.20.10.8:5000/video_feed" style="width: 100%; height: 100%; object-fit: cover;"
+                onload="document.getElementById('cameraStatus').className='device-status status-online'; document.getElementById('cameraStatus').textContent='在线'"
+                onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100%\' height=\'100%\'><rect width=\'100%\' height=\'100%\' fill=\'%23333\'/><text x=\'50%\' y=\'50%\' font-size=\'24\' fill=\'%23fff\' text-anchor=\'middle\' dominant-baseline=\'middle\'>摄像头离线</text></svg>'; document.getElementById('cameraStatus').className='device-status status-offline'; document.getElementById('cameraStatus').textContent='离线'">
+        </div>
+        <div style="padding: 5px; text-align: center;">
+            <a href="http://172.20.10.8:5000" target="_blank" class="fullscreen-btn">全屏查看</a>
+        </div>
+    </div>
+
+    <!-- 左侧中部设备状态区域 -->
+    <div class="devices-section">
+        <!-- 空调 -->
+        <div class="device-item">
+            <div class="device-icon">❄️</div>
+            <div class="device-name">空调</div>
+            <div class="device-status" id="acStatus">关闭</div>
+        </div>
+
+        <!-- 烟雾报警器 -->
+        <div class="device-item">
+            <div class="device-icon">🔥</div>
+            <div class="device-name">烟雾报警器</div>
+            <div class="device-status" id="smokeStatus">正常</div>
+        </div>
+
+        <!-- 主卧灯 -->
+        <div class="device-item">
+            <div class="device-icon">💡</div>
+            <div class="device-name">主卧灯</div>
+            <div class="device-status" id="mainLightStatus">关闭</div>
+        </div>
+
+        <!-- 客房灯 -->
+        <div class="device-item">
+            <div class="device-icon">💡</div>
+            <div class="device-name">客房灯</div>
+            <div class="device-status" id="bedroomLightStatus">关闭</div>
+        </div>
+    </div>
+
+    <!-- 左侧底部温湿度传感器区域 -->
+    <div class="sensor-section">
+        <div class="sensor-card">
+            <div class="sensor-label">温度</div>
+            <div class="sensor-value" id="temperature">--<span class="sensor-unit">°C</span></div>
+        </div>
+        <div class="sensor-card">
+            <div class="sensor-label">湿度</div>
+            <div class="sensor-value" id="humidity">--<span class="sensor-unit">%</span></div>
+        </div>
+        <div id="lastUpdate"></div>
+    </div>
+
+    <!-- 右侧门锁控制区域 -->
+    <div class="lock-section">
+        <div class="lock-title">智能门锁</div>
+
+        <!-- 密码输入显示 -->
+        <div class="password-display" id="passwordDisplay">
+            <div class="password-dot"></div>
+            <div class="password-dot"></div>
+            <div class="password-dot"></div>
+            <div class="password-dot"></div>
+            <div class="password-dot"></div>
+            <div class="password-dot"></div>
+        </div>
+
+        <input type="hidden" id="password" value="">
+
+        <!-- 九宫格键盘 -->
+        <div class="keypad" id="keypad">
+            <div class="key" data-value="1">1</div>
+            <div class="key" data-value="2">2</div>
+            <div class="key" data-value="3">3</div>
+            <div class="key" data-value="4">4</div>
+            <div class="key" data-value="5">5</div>
+            <div class="key" data-value="6">6</div>
+            <div class="key" data-value="7">7</div>
+            <div class="key" data-value="8">8</div>
+            <div class="key" data-value="9">9</div>
+            <div class="key camera" id="cameraBtn">📸 人脸</div>
+            <div class="key" data-value="0">0</div>
+            <div class="key backspace" id="backspace">⌫ 删除</div>
+        </div>
+
+        <!-- 语音控制提示 -->
+        <div class="voice-hint">
+            <span>🎤 说</span>
+            <i>"打开语音"</i>
+            <span>开始人脸识别</span>
+        </div>
+
+        <!-- 消息提示区域 -->
+        <div id="message" class="message"></div>
+
+        <!-- 解锁后显示的状态信息 -->
+        <div id="unlockedPanel" class="unlock-panel" style="display: none;">
+            <div class="unlock-hint">
+                <span>🔓 系统已解锁</span>
+            </div>
+            <!-- 人脸录入按钮 -->
+            <div style="margin: 15px 0; text-align: center;">
+                <button id="enrollFaceBtn" style="
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    border: none;
+                    padding: 12px 30px;
+                    border-radius: 25px;
+                    font-size: clamp(14px, 2vw, 20px);
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 8px;
+                    margin: 0 auto;
+                    width: 80%;
+                " onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 6px 20px rgba(102, 126, 234, 0.6)'" 
+                   onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 15px rgba(102, 126, 234, 0.4)'">
+                    <span>📸</span>
+                    <span>录入人脸</span>
+                </button>
+            </div>
+            <div class="unlock-hint">
+                <span>🎤 可以使用语音控制设备</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 全局变量 ====================
+        let systemLocked = true;
+        const MAX_PASSWORD_LENGTH = 6;
+        let pollingInterval = null;
+
+        // ==================== DOM 元素 ====================
+        const passwordInput = document.getElementById('password');
+        const passwordDisplay = document.getElementById('passwordDisplay');
+        const keypad = document.getElementById('keypad');
+        const backspace = document.getElementById('backspace');
+        const cameraBtn = document.getElementById('cameraBtn');
+        const messageDiv = document.getElementById('message');
+        const unlockedPanel = document.getElementById('unlockedPanel');
+        const enrollFaceBtn = document.getElementById('enrollFaceBtn');
+
+        // 设备状态元素
+        const acStatus = document.getElementById('acStatus');
+        const mainLightStatus = document.getElementById('mainLightStatus');
+        const bedroomLightStatus = document.getElementById('bedroomLightStatus');
+        const smokeStatus = document.getElementById('smokeStatus');
+        const temperature = document.getElementById('temperature');
+        const humidity = document.getElementById('humidity');
+
+        // ==================== 工具函数 ====================
+        function showMessage(text, type = 'info') {
+            messageDiv.textContent = text;
+            messageDiv.className = 'message ' + type;
+            messageDiv.style.display = 'block';
+
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        function updatePasswordDisplay() {
+            const dots = passwordDisplay.querySelectorAll('.password-dot');
+            const passwordLength = passwordInput.value.length;
+
+            dots.forEach((dot, index) => {
+                if (index < passwordLength) {
+                    dot.classList.add('active');
+                } else {
+                    dot.classList.remove('active');
+                }
+            });
+        }
+
+        function updateUI(data) {
+            if (!data) return;
+
+            console.log('收到状态更新:', data);
+
+            // 更新锁定状态
+            if (data.system_locked !== undefined) {
+                systemLocked = data.system_locked;
+                unlockedPanel.style.display = systemLocked ? 'none' : 'block';
+            }
+
+            // 更新设备状态
+            if (data.devices) {
+                if (data.devices.ac !== undefined) {
+                    acStatus.textContent = data.devices.ac ? '开启' : '关闭';
+                    acStatus.className = 'device-status ' + (data.devices.ac ? 'ac-on' : 'ac-off');
+                }
+
+                if (data.devices.smoke !== undefined) {
+                    if (data.devices.smoke) {
+                        smokeStatus.textContent = '报警';
+                        smokeStatus.className = 'device-status smoke-warning';
+                    } else {
+                        smokeStatus.textContent = '正常';
+                        smokeStatus.className = 'device-status smoke-normal';
+                    }
+                }
+
+                if (data.devices.mainLight !== undefined) {
+                    mainLightStatus.textContent = data.devices.mainLight ? '开启' : '关闭';
+                    mainLightStatus.className = 'device-status ' + (data.devices.mainLight ? 'light-on' : 'light-off');
+                }
+
+                if (data.devices.bedroomLight !== undefined) {
+                    bedroomLightStatus.textContent = data.devices.bedroomLight ? '开启' : '关闭';
+                    bedroomLightStatus.className = 'device-status ' + (data.devices.bedroomLight ? 'light-on' : 'light-off');
+                }
+            }
+
+            // 更新传感器数据
+            if (data.sensors) {
+                // 温度显示
+                if (data.sensors.temperature !== undefined) {
+                    const tempValue = data.sensors.temperature;
+                    if (tempValue > -20 && tempValue < 60) {
+                        temperature.innerHTML = tempValue.toFixed(1) + '<span class="sensor-unit">°C</span>';
+                        temperature.style.color = getTemperatureColor(tempValue);
+                    } else {
+                        temperature.innerHTML = '--<span class="sensor-unit">°C</span>';
+                        temperature.style.color = '#2196F3';
+                    }
+                }
+
+                // 湿度显示
+                if (data.sensors.humidity !== undefined) {
+                    const humValue = data.sensors.humidity;
+                    if (humValue >= 0 && humValue <= 100) {
+                        if (humValue === 0) {
+                            humidity.innerHTML = '0<span class="sensor-unit">%</span>';
+                            humidity.style.color = '#f44336';
+                        } else {
+                            humidity.innerHTML = humValue + '<span class="sensor-unit">%</span>';
+                            humidity.style.color = getHumidityColor(humValue);
+                        }
+                    } else {
+                        humidity.innerHTML = '--<span class="sensor-unit">%</span>';
+                        humidity.style.color = '#2196F3';
+                    }
+                }
+
+                // 更新最后更新时间
+                const lastUpdate = document.getElementById('lastUpdate');
+                if (lastUpdate) {
+                    const now = new Date();
+                    const timeStr = now.toLocaleTimeString('zh-CN', {
+                        hour12: false,
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                    lastUpdate.textContent = `最后更新: ${timeStr}`;
+                }
+            }
+        }
+
+        function getTemperatureColor(temp) {
+            if (temp < 10) return '#2196F3';
+            if (temp < 20) return '#4CAF50';
+            if (temp < 30) return '#FF9800';
+            return '#f44336';
+        }
+
+        function getHumidityColor(hum) {
+            if (hum < 30) return '#f44336';
+            if (hum < 50) return '#FF9800';
+            if (hum < 70) return '#4CAF50';
+            return '#2196F3';
+        }
+
+        // ==================== API 请求 ====================
+        async function fetchStatus() {
+            try {
+                const response = await fetch('/api/status?t=' + Date.now());
+                const data = await response.json();
+                updateUI(data);
+            } catch (error) {
+                console.error('获取状态失败:', error);
+                temperature.innerHTML = '--<span class="sensor-unit">°C</span>';
+                humidity.innerHTML = '--<span class="sensor-unit">%</span>';
+            }
+        }
+
+        async function sendCommand(command, data = {}) {
+            try {
+                const response = await fetch('/api/command', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        command: command,
+                        ...data
+                    })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showMessage(result.message, 'success');
+                    await fetchStatus();
+                } else {
+                    showMessage(result.message, 'error');
+                }
+            } catch (error) {
+                showMessage('命令发送失败', 'error');
+            }
+        }
+
+        // ==================== 事件处理 ====================
+        function checkPassword() {
+            const password = passwordInput.value;
+            if (password.length === MAX_PASSWORD_LENGTH) {
+                sendCommand('password', { password: password });
+                passwordInput.value = '';
+                updatePasswordDisplay();
+            }
+        }
+
+        function startFaceRecognition() {
+            sendCommand('voice_command', { voice_cmd: 'open_voice' });
+        }
+
+        function startFaceEnrollment() {
+            sendCommand('face_enrollment', { action: 'start' });
+        }
+
+        function controlAC(state) {
+            sendCommand('control', { device: 'ac', action: state ? 'on' : 'off' });
+        }
+
+        function controlMainLight(state) {
+            sendCommand('control', { device: 'mainLight', action: state ? 'on' : 'off' });
+        }
+
+        function controlBedroomLight(state) {
+            sendCommand('control', { device: 'bedroomLight', action: state ? 'on' : 'off' });
+        }
+
+        // ==================== 键盘事件 ====================
+        keypad.addEventListener('click', function (e) {
+            const key = e.target.closest('.key');
+            if (!key) return;
+
+            if (key.classList.contains('backspace')) {
+                passwordInput.value = passwordInput.value.slice(0, -1);
+                updatePasswordDisplay();
+            } else if (key.classList.contains('camera')) {
+                startFaceRecognition();
+            } else if (key.dataset.value !== undefined) {
+                if (passwordInput.value.length < MAX_PASSWORD_LENGTH) {
+                    passwordInput.value += key.dataset.value;
+                    updatePasswordDisplay();
+
+                    if (passwordInput.value.length === MAX_PASSWORD_LENGTH) {
+                        setTimeout(checkPassword, 500);
+                    }
+                }
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key >= '0' && e.key <= '9') {
+                if (passwordInput.value.length < MAX_PASSWORD_LENGTH) {
+                    passwordInput.value += e.key;
+                    updatePasswordDisplay();
+                }
+            } else if (e.key === 'Backspace') {
+                passwordInput.value = passwordInput.value.slice(0, -1);
+                updatePasswordDisplay();
+            } else if (e.key === 'Enter') {
+                if (passwordInput.value.length > 0) {
+                    checkPassword();
+                }
+            } else if (e.key.toLowerCase() === 'e') {
+                startFaceEnrollment();
+            }
+        });
+
+        // 人脸录入按钮点击事件
+        enrollFaceBtn.addEventListener('click', () => {
+            if (systemLocked) {
+                showMessage('🔒 系统已锁定，请先解锁', 'error');
+                return;
+            }
+            
+            const name = prompt('请输入要录入的人名:');
+            if (name && name.trim()) {
+                showMessage(`📸 正在录入 "${name.trim()}" 的人脸...`, 'info');
+                // 发送人脸录入命令到后端
+                sendCommand('enroll_face', { name: name.trim() });
+            }
+        });
+
+        // ==================== 初始化 ====================
+        function startPolling() {
+            fetchStatus();
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+            pollingInterval = setInterval(fetchStatus, 2000);
+        }
+
+        window.addEventListener('load', function () {
+            startPolling();
+            updatePasswordDisplay();
+        });
+
+        window.addEventListener('beforeunload', function () {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+        });
+    </script>
+</body>
+
+</html>
